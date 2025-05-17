@@ -208,13 +208,13 @@ const Navbar = () => {
 
                 {/* Staff Section */}
                 <span className="font-semibold text-black/40 pt-6 pb-0 text-[10px] uppercase tracking-wider px-2">Staff</span>
-                <Link href="/instructor-profile" passHref onClick={handleLinkClick} className="w-full">
+                <Link href="/instructor_auth" passHref onClick={handleLinkClick} className="w-full">
                   <Button variant="ghost" className="font-medium text-[#444444] text-[15px] h-auto py-3 px-2 w-full justify-start">
                     Instructor
                   </Button>
                 </Link>
                 <div className="h-[1px] bg-white w-full my-0"></div> {/* Separator */}
-                <Link href="/admin-dashboard" passHref onClick={handleLinkClick} className="w-full">
+                <Link href="/admin_auth" passHref onClick={handleLinkClick} className="w-full">
                   <Button variant="ghost" className="font-medium text-[#444444] text-[15px] h-auto py-3 px-2 w-full justify-start">
                     Admin
                   </Button>
