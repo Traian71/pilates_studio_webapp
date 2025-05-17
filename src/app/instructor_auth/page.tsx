@@ -112,7 +112,7 @@ export default function InstructorAuthPage() {
         </CardContent>
         <CardFooter>
           <p className="text-sm text-center w-full">
-             Don&apos;t have an instructor account?
+            Don't have an instructor account? 
             <Link href="/instructor_signup" className="text-vibrant-coral hover:underline ml-1">
               Sign up
             </Link>

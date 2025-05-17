@@ -6,9 +6,30 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, ChevronDown } from 'lucide-react'; 
 import { useAuth } from '@/contexts/AuthContext';
+import { useRef } from 'react';
+import { CarouselArrows } from '@/components/ui/CarouselArrows';
 
 export default function ReformerPilatesPage() { 
   const { user } = useAuth();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({
+        left: -350,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({
+        left: 350,
+        behavior: 'smooth'
+      });
+    }
+  };
   // Updated benefits for Reformer Pilates
   const benefits = [
     {
@@ -82,7 +103,12 @@ export default function ReformerPilatesPage() {
           Beneficiile Reformer Pilates 
         </h2>
         <div className="relative">
-          <div className="flex overflow-x-auto space-x-6 pb-8 no-scrollbar scroll-smooth" style={{scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'}}>
+          <CarouselArrows onPrev={scrollLeft} onNext={scrollRight} className="z-10" />
+          <div 
+            ref={scrollContainerRef}
+            className="flex overflow-x-auto space-x-6 pb-8 no-scrollbar scroll-smooth relative" 
+            style={{scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'}}
+          >
           {benefits.map((benefit, index) => (
             <Card key={index} className="shadow-lg hover:shadow-xl transition-shadow duration-300 bg-gray-50 border border-gray-200 flex-shrink-0 w-[350px] min-w-[350px] mb-4">
               <CardHeader>

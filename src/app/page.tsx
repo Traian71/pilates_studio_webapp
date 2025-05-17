@@ -18,10 +18,10 @@ export default function Home() {
     if (!user) {
       setShowNotification(true);
       
-      // Hide notification after 10 seconds
+      // Hide notification after 5 seconds
       const timer = setTimeout(() => {
         setShowNotification(false);
-      }, 10000);
+      }, 5000);
       
       return () => clearTimeout(timer);
     }
@@ -66,7 +66,7 @@ export default function Home() {
     <main className="flex flex-col text-gray-800 bg-[#EBCECE] relative">
       {/* Notification Banner */}
       {showNotification && !user && (
-        <div className="fixed top-20 left-0 right-0 z-50 mx-auto max-w-md bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-500 transform animate-fade-in">
+        <div className="fixed top-20 left-1/2 z-50 w-[80%] max-w-md bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-500 transform animate-fade-in -translate-x-1/2">
           <div className="p-4 bg-gradient-to-r from-[#E57F84]/20 to-[#E57F84]/5 border-l-4 border-[#E57F84]">
             <div className="flex items-start">
               <div className="flex-shrink-0">

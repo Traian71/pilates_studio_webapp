@@ -36,7 +36,7 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "CoreFlow Pilates Studio",
+  title: "Balance Pilates Studio",
   description: "Modern web platform for a Pilates studio that streamlines client onboarding, class booking, and studio management.",
 };
 

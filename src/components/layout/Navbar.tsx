@@ -190,6 +190,12 @@ const Navbar = () => {
                     Booking
                   </Button>
                 </Link>
+                <div className="h-[1px] bg-white w-full my-0"></div> {/* Separator */}
+                <Link href="/prices" passHref onClick={handleLinkClick} className="w-full">
+                  <Button variant="ghost" className="font-medium text-[#444444] text-[15px] h-auto py-3 px-2 w-full justify-start">
+                    Prețuri
+                  </Button>
+                </Link>
 
                 {/* Comunitate Section */}
                 <span className="font-semibold text-black/40 pt-6 pb-0 text-[10px] uppercase tracking-wider px-2">Comunitate</span>
@@ -254,6 +260,11 @@ const Navbar = () => {
             <Link href="/booking" passHref onClick={handleLinkClick}>
               <Button variant="ghost" className="font-medium text-nav-text my-1 md:my-0 md:px-2">
                 Booking
+              </Button>
+            </Link>
+            <Link href="/prices" passHref onClick={handleLinkClick}>
+              <Button variant="ghost" className="font-medium text-nav-text my-1 md:my-0 md:px-2">
+                Prețuri
               </Button>
             </Link>
 

@@ -42,7 +42,7 @@ export default function SignupPage() {
           data: {
             first_name: firstName,
             last_name: lastName,
-            phone: phone || null,
+            phone: phone,
           },
         },
       });
@@ -178,11 +178,12 @@ export default function SignupPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="phone" className="text-vibrant-coral">Număr de Telefon (Opțional)</Label>
+              <Label htmlFor="phone" className="text-vibrant-coral">Număr de Telefon</Label>
               <Input 
                 id="phone" 
                 type="tel" 
                 placeholder="Numărul tău de telefon" 
+                required
                 value={phone} 
                 onChange={(e) => setPhone(e.target.value)} 
                 className="border-gray-300 focus:border-soft-peach focus:ring-soft-peach placeholder-gray-500" 

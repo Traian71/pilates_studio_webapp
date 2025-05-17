@@ -7,9 +7,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, ChevronDown } from 'lucide-react'; // Using an icon for list items
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"; // Added Carousel imports
 import { useAuth } from '@/contexts/AuthContext';
+import { useRef } from 'react';
+import { CarouselArrows } from '@/components/ui/CarouselArrows';
 
 export default function MatPilatesPage() {
   const { user } = useAuth();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({
+        left: -350,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({
+        left: 350,
+        behavior: 'smooth'
+      });
+    }
+  };
   const benefits = [
     {
       title: "Tonifiere musculară",
@@ -80,7 +101,12 @@ export default function MatPilatesPage() {
         </h2>
         {/* Benefits Section Grid (Desktop) */}
         <div className="relative">
-          <div className="flex overflow-x-auto space-x-6 pb-8 no-scrollbar scroll-smooth" style={{scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'}}>
+          <CarouselArrows onPrev={scrollLeft} onNext={scrollRight} className="z-10" />
+          <div 
+            ref={scrollContainerRef}
+            className="flex overflow-x-auto space-x-6 pb-8 no-scrollbar scroll-smooth relative" 
+            style={{scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'}}
+          >
           {benefits.map((benefit, index) => (
             <Card key={index} className="bg-gray-50 p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 flex-shrink-0 w-[350px] min-w-[350px] mb-4">
               <CardHeader>
