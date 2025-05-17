@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin_auth
+Disallow: /admin_signup
+Disallow: /instructor_auth
+Disallow: /instructor_signup
+Disallow: /instructor_profile
+Disallow: /instructor_reschedule
+Disallow: /instructor_sessions
+Disallow: /admin_profile
+
+Sitemap: https://www.balancestudio.ro/sitemap.xml

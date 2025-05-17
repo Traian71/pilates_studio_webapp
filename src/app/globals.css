@@ -1,0 +1,167 @@
+@tailwind base;
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+@tailwind components;
+@tailwind utilities;
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 1.5s ease-out forwards;
+  }
+  .animate-slide-up {
+    opacity: 0;
+    animation: slideUp 1.5s ease-out 0.5s forwards;
+  }
+  .animate-slide-down {
+    opacity: 0;
+    animation: slideDown 1s ease-out forwards;
+  }
+  .animate-fade-in-scale {
+    animation: fadeInScale 1.5s ease-out forwards;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* White */
+    --foreground: 0 0% 3.9%; /* Almost Black */
+
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 0 0% 3.9%; /* Almost Black */
+
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 0 0% 3.9%; /* Almost Black */
+
+    --primary: 350 80% 96%; /* Light Pink/Warm Beige accent */
+    --primary-foreground: 0 0% 3.9%; /* Almost Black for text on primary */
+
+    --secondary: 0 0% 97%; /* Very Light Gray */
+    --secondary-foreground: 0 0% 3.9%; /* Almost Black for text on secondary */
+
+    --muted: 0 0% 96.1%; /* Light Gray for muted backgrounds */
+    --muted-foreground: 0 0% 40%; /* Darker Gray for muted text */
+
+    --accent: 350 80% 96%; /* Light Pink/Warm Beige accent (same as primary for now) */
+    --accent-foreground: 0 0% 3.9%; /* Almost Black for text on accent */
+
+    --destructive: 0 72.2% 50.6%; /* A clearer red for destructive actions */
+    --destructive-foreground: 0 0% 98%; /* White text on destructive */
+
+    --border: 0 0% 90%; /* Light Gray border */
+    --input: 0 0% 92%; /* Slightly darker gray for input background */
+    --ring: 350 80% 85%; /* A slightly more saturated pink/beige for focus rings */
+
+    --radius: 0.5rem;
+
+    /* Chart colors can be updated to fit the new aesthetic or removed if not used */
+    /* For now, let's make them shades of gray or a single accent color */
+    --chart-1: 0 0% 60%;
+    --chart-2: 0 0% 50%;
+    --chart-3: 0 0% 40%;
+    --chart-4: 0 0% 30%;
+    --chart-5: 0 0% 20%;
+  }
+
+  .dark {
+    /* For dark mode, we'll use a dark background with light text and the same accent */
+    --background: 0 0% 3.9%; /* Almost Black */
+    --foreground: 0 0% 98%; /* White */
+
+    --card: 0 0% 5.9%; /* Dark Gray */
+    --card-foreground: 0 0% 98%; /* White */
+
+    --popover: 0 0% 5.9%; /* Dark Gray */
+    --popover-foreground: 0 0% 98%; /* White */
+
+    --primary: 350 80% 96%; /* Light Pink/Warm Beige accent (same as light mode) */
+    --primary-foreground: 0 0% 3.9%; /* Almost Black for text on primary */
+
+    --secondary: 0 0% 14.9%; /* Darker Gray */
+    --secondary-foreground: 0 0% 98%; /* White */
+
+    --muted: 0 0% 14.9%; /* Darker Gray */
+    --muted-foreground: 0 0% 62.9%; /* Lighter Gray for muted text */
+
+    --accent: 350 80% 96%; /* Light Pink/Warm Beige accent (same as light mode) */
+    --accent-foreground: 0 0% 3.9%; /* Almost Black for text on accent */
+
+    --destructive: 0 62.8% 30.6%; /* Darker Red */
+    --destructive-foreground: 0 0% 98%; /* White */
+
+    --border: 0 0% 14.9%; /* Dark Gray border */
+    --input: 0 0% 14.9%; /* Dark Gray input background */
+    --ring: 350 80% 75%; /* Slightly adjusted ring for dark mode */
+    
+    /* Chart colors for dark mode */
+    --chart-1: 0 0% 40%;
+    --chart-2: 0 0% 50%;
+    --chart-3: 0 0% 60%;
+    --chart-4: 0 0% 70%;
+    --chart-5: 0 0% 80%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Ensure font-sans from Tailwind (Josefin Sans via layout.tsx) is applied 
+       or remove this comment if next/font is fully managing body font */
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
