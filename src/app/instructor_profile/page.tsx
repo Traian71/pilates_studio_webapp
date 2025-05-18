@@ -227,75 +227,80 @@ export default function InstructorDashboard() {
 
         setInstructorData(data);
 
-        // Fetch clients with sessions
+        // First, get all sessions for this instructor
         const { data: sessions, error: sessionsError } = await supabase
           .from('sessions')
-          .select('id')
+          .select('id, start_time')
           .eq('instructor_id', session.user.id);
 
         if (sessionsError) {
           console.error('Error fetching sessions:', sessionsError);
+          toast.error('Could not fetch sessions');
           return;
         }
 
-        const sessionIds = sessions.map(s => s.id);
+        if (!sessions || sessions.length === 0) {
+          console.log('No sessions found for this instructor');
+          setClients([]);
+          return;
+        }
+
+
+        // Use the get_session_clients function for each session
+        const clientsMap = new Map();
         
-        const { data: bookings, error: bookingsError } = await supabase
-          .from('bookings')
-          .select('id, client_id, session_id, session:session_id(start_time)')
-          .in('session_id', sessionIds);
-
-        if (bookingsError) {
-          console.error('Error fetching bookings:', bookingsError);
-          return;
-        }
-
-        // Get unique client IDs
-        const clientIds = [...new Set(bookings.map(b => b.client_id))];
-
-        // Fetch client details
-        const { data: clientDetails, error: clientError } = await supabase
-          .from('clients')
-          .select('id, first_name, last_name')
-          .in('id', clientIds);
-
-        if (clientError) {
-          console.error('Error fetching client details:', clientError);
-          return;
-        }
-
-        // Group sessions and bookings by client
-        const groupedClients = clientDetails.map(client => {
-          const clientBookings = bookings.filter(b => b.client_id === client.id);
+        // Process each session to get clients
+        for (const session of sessions) {
+          const { data: sessionClients, error: clientsError } = await supabase
+            .rpc('get_session_clients', { session_id_param: session.id });
+            
+          if (clientsError) {
+            console.error(`Error fetching clients for session ${session.id}:`, clientsError);
+            continue; // Skip this session but continue with others
+          }
           
-          // Map bookings to sessions with proper type annotation
-          const clientSessions: { id: string; start_time: string | undefined }[] = clientBookings.map(b => {
-            // Ensure session is properly typed with start_time
-            const sessionData = b.session as { start_time?: string } | null | undefined;
-            return {
-              id: b.session_id,
-              start_time: sessionData?.start_time
-            };
-          });
+          // Add clients to our map, merging with existing client data
+          if (sessionClients && sessionClients.length > 0) {
+            for (const client of sessionClients) {
+              const clientId = `${client.first_name}_${client.last_name}`; // Create a unique ID
+              
+              if (!clientsMap.has(clientId)) {
+                clientsMap.set(clientId, {
+                  id: clientId,
+                  first_name: client.first_name,
+                  last_name: client.last_name,
+                  sessions: [],
+                  bookings: []
+                });
+              }
+              
+              // Add this session to the client's sessions
+              const clientData = clientsMap.get(clientId);
+              clientData.sessions.push({
+                id: session.id,
+                start_time: session.start_time
+              });
+              
+              // Add a simplified booking entry
+              clientData.bookings.push({
+                id: `${session.id}_${clientId}`, // Create a unique booking ID
+                session_id: session.id,
+                client_id: clientId,
+                session: {
+                  id: session.id,
+                  start_time: session.start_time
+                }
+              });
+            }
+          }
+        }
 
-          return {
-            id: client.id,
-            first_name: client.first_name,
-            last_name: client.last_name,
-            sessions: clientSessions,
-            bookings: clientBookings.map(b => ({
-              id: b.id,
-              session_id: b.session_id,
-              client_id: client.id,
-              session: b.session ? {
-                id: b.session_id,
-                start_time: (b.session as { start_time?: string })?.start_time
-              } : undefined
-            }))
-          };
-        });
+        
+        // Convert the map values to an array
+        const groupedClients = Array.from(clientsMap.values());
 
-        setClients(groupedClients);
+        // Filter out any null entries before setting state
+        setClients(groupedClients.filter(Boolean) as Client[]);
 
       } catch (err) {
         console.error('Instructor dashboard error:', err);

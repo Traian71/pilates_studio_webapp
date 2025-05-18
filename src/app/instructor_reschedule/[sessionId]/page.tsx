@@ -145,22 +145,51 @@ export default function InstructorReschedulePage() {
     }) || null;
   }, [selectedDate, availableSessions]);
 
-  // Function to check if a session is compatible with the current session - memoized to prevent recalculations
-  const isSessionCompatible = useCallback((session: any) => {
-    if (!currentSession) return false;
-    
-    const isCompatible = (
-      session.instructor_id === currentSession.instructor_id &&
-      session.class_type_id === currentSession.class_type_id
-    );
-    
-    console.log('Compatibility check:', {
-      session_id: session.id,
-      session_instructor: session.instructor_id,
-      current_instructor: currentSession.instructor_id,
-      session_class_type: session.class_type_id,
-      current_class_type: currentSession.class_type_id,
-      isCompatible: isCompatible
+  // Function to check if a session is compatible with the current booking
+  const isSessionCompatible = useCallback((session: Session) => {
+    if (!currentSession || !currentSession.instructor_id || !currentSession.class_type_id) {
+      console.log('Current session data is incomplete for compatibility check:', currentSession);
+      return false;
+    }
+
+    if (!session || !session.instructor_id || !session.class_type_id) {
+      console.log('Target session data is incomplete for compatibility check:', session);
+      return false;
+    }
+
+    // Debug logs
+    console.log('Checking compatibility between sessions:', {
+      currentSession: {
+        id: currentSession.id,
+        instructor_id: currentSession.instructor_id,
+        class_type_id: currentSession.class_type_id,
+      },
+      targetSession: {
+        id: session.id,
+        instructor_id: session.instructor_id,
+        class_type_id: session.class_type_id,
+      }
+    });
+
+    // Check if the session is the same as the current session
+    if (session.id === currentSession.id) {
+      console.log('Same session, not compatible for reschedule');
+      return false;
+    }
+
+    // Check if the session has the same instructor and class type
+    const isCompatible = 
+      session.instructor_id === currentSession.instructor_id && 
+      session.class_type_id === currentSession.class_type_id;
+
+    console.log('Session compatibility result:', {
+      isCompatible,
+      reason: isCompatible ? 
+        'Same instructor and class type' : 
+        `Mismatch - Instructor: ${session.instructor_id === currentSession.instructor_id ? 'match' : 'different'}, ` +
+        `Class Type: ${session.class_type_id === currentSession.class_type_id ? 'match' : 'different'}`,
+      session_data: session,
+      current_session_data: currentSession
     });
     
     return isCompatible;
@@ -204,30 +233,39 @@ export default function InstructorReschedulePage() {
 
   TimeSlot.displayName = 'TimeSlot';
 
-  // Function to render the feedback text for a time slot - memoized to prevent recalculations
+  // Function to render the feedback text for a time slot
   const renderTimeSlotFeedback = useCallback((time: string) => {
     const session = getSessionForTimeSlot(time);
     
+    // If no session exists at this time, it's a new session slot
     if (!session) return 'Ședință Nouă';
     
-    // Session exists at this time - all existing sessions display Ocupat or booking counts
-    if (currentSession && session.id === currentSession.id) return 'Ocupat'; // Current session being rescheduled
+    // Current session being rescheduled
+    if (currentSession && session.id === currentSession.id) return 'Ocupat';
     
     // Check if session is compatible (same instructor and class type)
-    if (isSessionCompatible(session)) {
-      // Calculate available spots
-      const spotsTotal = session.capacity || 4; // Default to 4 if capacity is not specified
-      const spotsBooked = session.bookings?.length || 0;
-      const spotsAvailable = spotsTotal - spotsBooked;
-      
-      if (spotsAvailable <= 0) return 'Ocupat';
-      return `${spotsAvailable} locuri rămase`; // Show available spots remaining
+    const isCompatible = isSessionCompatible(session);
+    
+    if (!isCompatible) {
+      // Show "Ocupat" for sessions with different class type or instructor
+      return 'Ocupat';
     }
     
-    return 'Ocupat'; // Non-compatible session or full session
+    // For compatible sessions, calculate available spots
+    const spotsTotal = session.capacity || 4; // Default to 4 if capacity is not specified
+    const spotsBooked = session.bookings?.length || 0;
+    const spotsAvailable = spotsTotal - spotsBooked;
+    
+    if (spotsAvailable <= 0) {
+      // Show "Ocupat" for full sessions
+      return 'Ocupat';
+    }
+    
+    // Show available spots for compatible sessions with space
+    return `${spotsAvailable} locuri rămase`;
   }, [getSessionForTimeSlot, currentSession, isSessionCompatible]);
 
-  // Fetch sessions for the selected date
+  // Fetch sessions for the selected date using our secure function
   useEffect(() => {
     const fetchSessions = async () => {
       if (!selectedDate || !currentSession) return;
@@ -238,37 +276,58 @@ export default function InstructorReschedulePage() {
       dayEnd.setHours(23, 59, 59, 999);
 
       try {
-        const { data, error } = await supabase
-          .from('sessions')
-          .select(`
-            *,
-            instructor:instructor_id(
-              first_name,
-              last_name
-            ),
-            class_type:class_type_id(
-              name
-            ),
-            bookings(*)
-          `)
-          .gte('start_time', dayStart.toISOString())
-          .lte('start_time', dayEnd.toISOString())
-          .order('start_time');
+        // First fetch the sessions data using our secure function
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .rpc('get_instructor_sessions', {
+            start_date_param: dayStart.toISOString(),
+            end_date_param: dayEnd.toISOString()
+          });
 
-        if (error) {
-          console.error('Error fetching sessions:', error);
+        if (sessionsError) {
+          console.error('Error fetching sessions:', sessionsError);
           return;
         }
 
-        setAvailableSessions(data || []);
+        // Then fetch the bookings for these sessions using our secure function
+        if (sessionsData && sessionsData.length > 0) {
+          const sessionIds = sessionsData.map((s: any) => s.id);
+          const { data: bookingsData, error: bookingsError } = await supabase
+            .rpc('get_bookings_for_sessions', {
+              session_ids: sessionIds
+            });
+
+          if (bookingsError) {
+            console.error('Error fetching bookings:', bookingsError);
+            return;
+          }
+
+          // Combine the data
+          const sessionsWithBookings = sessionsData.map((session: any) => ({
+            ...session,
+            instructor: {
+              id: session.instructor_id,
+              first_name: session.instructor_first_name,
+              last_name: session.instructor_last_name
+            },
+            class_type: {
+              id: session.class_type_id,
+              name: session.class_type_name
+            },
+            bookings: bookingsData?.filter((b: any) => b.session_id === session.id) || []
+          }));
+
+          setAvailableSessions(sessionsWithBookings);
+        } else {
+          setAvailableSessions([]);
+        }
       } catch (e: any) {
         console.error('Error fetching sessions:', e);
+        setAvailableSessions([]);
       }
     };
 
     fetchSessions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, currentSession]); // Removed supabase from dependencies
+  }, [selectedDate, currentSession]);
 
   const handleReschedule = async () => {
     if (!currentSession || !selectedDate || !selectedTimeSlot) return;
@@ -470,80 +529,122 @@ export default function InstructorReschedulePage() {
     }
   };
 
-  useEffect(() => {
-    const fetchBookingAndSessionDetails = async () => {
-      try {
-        // First, fetch the booking details
-        const { data: bookingData, error: bookingError } = await supabase
-          .from('bookings')
-          .select('id, session_id, client_id')
-          .eq('id', bookingId)
-          .single();
+    useEffect(() => {
+      const fetchBookingAndSessionDetails = async () => {
+        try {
+          // Ensure bookingId is a string and extract just the UUID part if it contains additional parts (like client name)
+          const bookingIdStr = Array.isArray(bookingId) ? bookingId[0] : bookingId;
+          const bookingUuid = bookingIdStr.split('_')[0];
+          
+          console.log('Original booking ID:', bookingIdStr);
+          console.log('Extracted booking UUID:', bookingUuid);
+          
+          // First, try to get the booking with its session details
+          console.log('Attempting to fetch booking with session details...');
+          const { data: bookingData, error: bookingError } = await supabase
+            .rpc('get_booking_with_session', { booking_id_param: bookingUuid });
 
-        if (bookingError) {
-          console.error('Error fetching booking details:', bookingError);
-          setError('Error fetching booking details');
-          return;
+          console.log('RPC call result:', { data: bookingData, error: bookingError });
+
+          if (bookingError) {
+            console.error('RPC Error:', bookingError);
+            throw new Error(`Failed to fetch booking: ${bookingError.message}`);
+          }
+
+          if (!bookingData) {
+            throw new Error('No data returned from get_booking_with_session');
+          }
+
+          console.log('Fetched booking data:', bookingData);
+
+          // If we got here, we have valid booking data
+          const sessionData = {
+            id: bookingData.session_id,
+            instructor_id: bookingData.instructor_id,
+            class_type_id: bookingData.class_type_id,
+            start_time: bookingData.start_time,
+            end_time: bookingData.end_time,
+            capacity: bookingData.capacity,
+            spots_available: bookingData.spots_available,
+            status: bookingData.status,
+            class_type: {
+              id: bookingData.class_type_id,
+              name: bookingData.class_type_name || 'Unknown Class'
+            },
+            instructor: {
+              id: bookingData.instructor_id,
+              first_name: bookingData.instructor_first_name || 'Unknown',
+              last_name: bookingData.instructor_last_name || 'Instructor'
+            }
+          };
+
+          // Transform the data to match our interfaces
+          const booking = {
+            id: bookingData.booking_id,
+            client_id: bookingData.client_id,
+            session_id: bookingData.session_id,
+            booking_time: bookingData.booking_time,
+            status: bookingData.status
+          };
+
+          // The session data is already properly formatted
+          const session = {
+            ...sessionData,
+            bookings: [] // Initialize empty array for bookings
+          };
+
+          console.log('Setting current session with data:', {
+            id: session.id,
+            instructor_id: session.instructor_id,
+            class_type_id: session.class_type_id,
+            start_time: session.start_time,
+            end_time: session.end_time,
+            capacity: session.capacity,
+            spots_available: session.spots_available,
+            status: session.status
+          });
+
+          console.log('Setting current session:', session);
+          setCurrentSession(session);
+          setCurrentBooking(booking);
+          
+          // Set the selected date to the session's date
+          if (session.start_time) {
+            const sessionDate = new Date(session.start_time);
+            setSelectedDate(sessionDate);
+          }
+
+          setLoading(false);
+        } catch (error) {
+          console.error('Error in fetchBookingAndSessionDetails:', error);
+          setError('An error occurred while fetching booking details');
+          setLoading(false);
         }
+      };
 
-        setCurrentBooking(bookingData);
-        console.log('Current booking:', bookingData);
+      fetchBookingAndSessionDetails();
+    }, [bookingId]); // Add bookingId to the dependency array
 
-        // Then fetch the session details
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('sessions')
-          .select(`
-            *,
-            instructor:instructor_id(
-              first_name,
-              last_name
-            ),
-            class_type:class_type_id(
-              name
-            )
-          `)
-          .eq('id', bookingData.session_id)
-          .single();
+    // Watch for changes to currentSession and fetch available sessions
+    // We're already handling session fetching in the useEffect above
 
-        if (sessionError) {
-          console.error('Error fetching session details:', sessionError);
-          setError('Error fetching session details');
-          return;
-        }
-
-        setCurrentSession(sessionData);
-        console.log('Current session:', sessionData);
-      } catch (e: any) {
-        console.error('Error:', e);
-        setError(e.message || 'An unexpected error occurred');
-      } finally {
-        setLoading(false);
+    // Add a debug log to check session data
+    useEffect(() => {
+      if (availableSessions.length > 0) {
+        console.log('Available sessions:', availableSessions);
       }
-    };
+    }, [availableSessions]);
 
-    fetchBookingAndSessionDetails();
-  }, [bookingId]);
-
-  // Watch for changes to currentSession and fetch available sessions
-  // We're already handling session fetching in the useEffect above
-
-  // Add a debug log to check session data
-  useEffect(() => {
-    if (availableSessions.length > 0) {
-      console.log('Available sessions:', availableSessions);
-    }
-  }, [availableSessions]);
-
-  return (
-    <div className="min-h-screen bg-[#EBCECE] py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <Card className="shadow-xl overflow-hidden">
-          <CardHeader className="text-white p-6 relative" style={{ backgroundImage: 'url(/images/AdobeStock_142637447.jpeg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-            <div className="absolute inset-0 bg-black/30 z-0"></div>
-            <div className="relative z-10">
-              <CardTitle className="text-3xl font-bold text-center">Reprogramare Ședință</CardTitle>
-            </div>
-          </CardHeader>
+    return (
+      <div className="min-h-screen bg-[#EBCECE] py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto">
+          <Card className="shadow-xl overflow-hidden">
+            <CardHeader className="text-white p-6 relative" style={{ backgroundImage: 'url(/images/AdobeStock_142637447.jpeg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+              <div className="absolute inset-0 bg-black/30 z-0"></div>
+              <div className="relative z-10">
+                <CardTitle className="text-3xl font-bold text-center">Reprogramare Ședință</CardTitle>
+              </div>
+            </CardHeader>
           <CardContent className="p-6 md:p-8">
             {error && <p className="text-red-500 bg-red-100 p-3 rounded-md mb-4 text-sm">Error: {error}</p>}
 
@@ -568,13 +669,21 @@ export default function InstructorReschedulePage() {
                           const session = getSessionForTimeSlot(slot);
                           const feedbackText = renderTimeSlotFeedback(slot);
                           
-                          // A slot is selectable if it's a new session or a compatible session with spots available
-                          // "Ocupat" slots are never selectable
-                          const isSelectable = feedbackText !== 'Ocupat' && (
-                            !session || 
-                            (isSessionCompatible(session) && 
-                             ((session.capacity || 4) - (session.bookings?.length || 0)) > 0)
+                          // A slot is selectable if:
+                          // 1. It's a new session (no session exists at this time), OR
+                          // 2. It's a compatible session with available spots
+                          const isSelectable = !session || (
+                            isSessionCompatible(session) && 
+                            ((session.capacity || 4) - (session.bookings?.length || 0)) > 0
                           );
+                          
+                          // Debug log to help verify selection logic
+                          console.log('Time slot:', slot, {
+                            hasSession: !!session,
+                            isCompatible: session ? isSessionCompatible(session) : 'N/A',
+                            spotsAvailable: session ? (session.capacity || 4) - (session.bookings?.length || 0) : 'N/A',
+                            isSelectable
+                          });
                           
                           return (
                             <TimeSlot

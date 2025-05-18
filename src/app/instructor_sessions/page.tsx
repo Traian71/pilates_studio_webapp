@@ -36,6 +36,8 @@ interface StudioSession {
 }
 
 interface ClientInfo {
+  id: string; // Booking ID
+  client_id: string; // Client ID
   first_name: string;
   last_name: string;
 }
@@ -180,19 +182,17 @@ export default function InstructorSessionsPage() {
     setLoadingClients(true); // Specifically start loading the client list
 
     try {
-      // Diagnostic Step 1: Fetch booking IDs
+      // Use the secure database function to get session bookings with client details
       const { data: bookingsData, error: bookingsError } = await supabase
-        .from('bookings')
-        .select('id, client_id') 
-        .eq('session_id', sessionId);
+        .rpc('get_session_bookings', { session_id_param: sessionId });
       
       // At this point, basic session info is from the calendar event, so modal itself is no longer "globally" loading.
       setModalLoading(false); 
 
-      console.log('[DIAGNOSTIC] Fetched bookings (id, client_id) for session ID', sessionId, ':', JSON.stringify(bookingsData, null, 2));
+      console.log('[DIAGNOSTIC] Fetched bookings with client details for session ID', sessionId, ':', JSON.stringify(bookingsData, null, 2));
 
       if (bookingsError) {
-        console.error('Error fetching booking client_ids for session:', bookingsError);
+        console.error('Error fetching session bookings:', bookingsError);
         setBookedClients([]); 
         throw bookingsError; 
       }
@@ -203,28 +203,20 @@ export default function InstructorSessionsPage() {
         return; // Client list will be empty, loadingClients stops in finally
       }
 
-      const clientIds = bookingsData.map(b => b.client_id).filter(id => id !== null) as string[];
-      if (clientIds.length === 0) {
-        console.log('[DIAGNOSTIC] Bookings found, but no valid client_ids associated.');
-        setBookedClients([]);
-        return; // Client list will be empty, loadingClients stops in finally
-      }
-
-      // Diagnostic Step 2: Fetch client details
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('clients')
-        .select('first_name, last_name')
-        .in('id', clientIds);
+      // Transform the data to include the booking ID and client names
+      const clientsData = bookingsData.map((booking: { 
+        booking_id: string;
+        client_id: string;
+        first_name: string; 
+        last_name: string 
+      }) => ({
+        id: booking.booking_id, // Use the actual booking ID
+        client_id: booking.client_id,
+        first_name: booking.first_name,
+        last_name: booking.last_name
+      }));
       
-      console.log('[DIAGNOSTIC] Fetched client details for client_ids:', clientIds, ':', JSON.stringify(clientsData, null, 2));
-
-      if (clientsError) {
-        console.error('Error fetching client details:', clientsError);
-        setBookedClients([]);
-        throw clientsError; 
-      }
-
-      setBookedClients(clientsData as ClientInfo[] || []);
+      setBookedClients(clientsData as any[] || []);
 
     } catch (error: any) {
       console.error('Error fetching booked clients:', error);
