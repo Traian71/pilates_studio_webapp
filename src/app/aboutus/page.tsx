@@ -183,13 +183,13 @@ const AboutUsPage = () => {
         </div>
         <div className="flex justify-center space-x-6">
           <a 
-            href="/select-mat" 
+            href="/mat-pilates" 
             className="bg-[#E57F84] text-white px-2.5 md:px-4 py-1.5 rounded-full text-[0.75rem] md:text-base font-semibold hover:bg-[#E57F84]/90 transition-colors"
           >
             Saltea
           </a>
           <a 
-            href="/select-reformer" 
+            href="/reformer-pilates" 
             className="bg-[#E57F84] text-white px-2.5 md:px-4 py-1.5 rounded-full text-[0.75rem] md:text-base font-semibold hover:bg-[#E57F84]/90 transition-colors"
           >
             Reformer

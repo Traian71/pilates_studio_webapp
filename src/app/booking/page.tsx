@@ -387,7 +387,7 @@ export default function BookingPage() {
 
   if (!authUser && !isLoading) { // check added for isLoading
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4 pt-0 -mt-16 md:mt-0 md:pt-4">
             <Card className="w-full max-w-md">
                 <CardHeader>
                     <CardTitle className="text-2xl text-center text-vibrant-coral">Acces Interzis</CardTitle>
