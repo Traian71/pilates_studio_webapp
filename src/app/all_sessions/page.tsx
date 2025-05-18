@@ -154,49 +154,27 @@ export default function AllSessionsPage() {
     setLoadingClients(true);
 
     try {
-      const { data: bookingsData, error: bookingsError } = await supabase
-        .from('bookings')
-        .select('id, client_id')
-        .eq('session_id', sessionId);
+      // Use the database function to get clients directly
+      const { data: clients, error } = await supabase
+        .rpc('get_session_clients', { 
+          session_id_param: sessionId 
+        });
       
       setModalLoading(false);
 
-      if (bookingsError) {
-        console.error('Error fetching booking client_ids for session:', bookingsError);
-        setBookedClients([]);
-        throw bookingsError;
-      }
-
-      if (!bookingsData || bookingsData.length === 0) {
+      if (error) {
+        console.error('Error fetching session clients:', error);
         setBookedClients([]);
         return;
       }
 
-      const clientIds = bookingsData.map(b => b.client_id).filter(id => id !== null) as string[];
-      if (clientIds.length === 0) {
-        setBookedClients([]);
-        return;
-      }
-
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('clients')
-        .select('first_name, last_name')
-        .in('id', clientIds);
-
-      if (clientsError) {
-        console.error('Error fetching client details:', clientsError);
-        setBookedClients([]);
-        throw clientsError;
-      }
-
-      setBookedClients(clientsData as ClientInfo[] || []);
-
+      setBookedClients(clients || []);
     } catch (error: any) {
-      console.error('Error fetching booked clients:', error);
+      console.error('Error in fetchClientsForSession:', error);
       setBookedClients([]);
-      setModalLoading(false);
     } finally {
       setLoadingClients(false);
+      setModalLoading(false);
     }
   };
 
