@@ -20,6 +20,7 @@ interface Session {
   end_time: string;
   capacity: number;
   spots_available: number;
+  status: string;
   current_attendees?: number;
   instructor?: {
     id: string;
@@ -30,9 +31,7 @@ interface Session {
     id: string;
     name: string;
   };
-  bookings?: {
-    id: string;
-  }[];
+  bookings: Array<{ id: string }>;
 }
 
 interface Booking {
@@ -147,8 +146,22 @@ export default function InstructorReschedulePage() {
 
   // Function to check if a session is compatible with the current booking
   const isSessionCompatible = useCallback((session: Session) => {
-    if (!currentSession || !currentSession.instructor_id || !currentSession.class_type_id) {
-      console.log('Current session data is incomplete for compatibility check:', currentSession);
+    if (!currentSession) {
+      console.log('No current session for compatibility check');
+      return false;
+    }
+    
+    // Log the current session data for debugging
+    console.log('Current session data for compatibility check:', {
+      id: currentSession.id,
+      instructor_id: currentSession.instructor_id,
+      class_type_id: currentSession.class_type_id,
+      hasClassType: !!currentSession.class_type,
+      hasInstructor: !!currentSession.instructor
+    });
+    
+    if (!currentSession.instructor_id || !currentSession.class_type_id) {
+      console.error('Current session is missing required fields for compatibility check');
       return false;
     }
 
@@ -330,7 +343,21 @@ export default function InstructorReschedulePage() {
   }, [selectedDate, currentSession]);
 
   const handleReschedule = async () => {
-    if (!currentSession || !selectedDate || !selectedTimeSlot) return;
+    if (!currentSession || !selectedDate || !selectedTimeSlot) {
+      setError('Please select a date and time slot for rescheduling.');
+      return;
+    }
+    
+    // Validate that we have all required session data
+    if (!currentSession.class_type_id || !currentSession.instructor_id) {
+      console.error('Missing required session data:', {
+        class_type_id: currentSession.class_type_id,
+        instructor_id: currentSession.instructor_id,
+        currentSession
+      });
+      setError('Cannot reschedule: Missing required session information. Please try again.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -375,17 +402,22 @@ export default function InstructorReschedulePage() {
           status: 'scheduled'
         });
         
+        // Log the data we're about to use for creating the session
+        const newSessionData = {
+          class_type_id: currentSession.class_type_id,
+          instructor_id: currentSession.instructor_id,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          capacity: currentSession.capacity || 4, // Default to 4 if not set
+          spots_available: currentSession.capacity || 4, // Default to 4 if not set
+          status: 'scheduled'
+        };
+        
+        console.log('Creating new session with data:', newSessionData);
+        
         const { data: newSession, error: newSessionError } = await supabase
           .from('sessions')
-          .insert({
-            class_type_id: currentSession.class_type_id,
-            instructor_id: currentSession.instructor_id,
-            start_time: startTime.toISOString(),
-            end_time: endTime.toISOString(),
-            capacity: currentSession.capacity,
-            spots_available: currentSession.capacity,
-            status: 'scheduled', 
-          })
+          .insert(newSessionData)
           .select()
           .single();
           
@@ -530,83 +562,133 @@ export default function InstructorReschedulePage() {
   };
 
     useEffect(() => {
-      const fetchBookingAndSessionDetails = async () => {
+      const fetchSessionAndBookingDetails = async () => {
         try {
-          // Ensure bookingId is a string and extract just the UUID part if it contains additional parts (like client name)
-          const bookingIdStr = Array.isArray(bookingId) ? bookingId[0] : bookingId;
-          const bookingUuid = bookingIdStr.split('_')[0];
+          // Extract the session ID and client name from the URL
+          // Format: sessionId_FirstName_LastName
+          const urlParts = (Array.isArray(bookingId) ? bookingId[0] : bookingId || '').split('_');
+          const sessionUuid = urlParts[0];
+          const clientFirstName = urlParts[1] || '';
+          const clientLastName = urlParts.slice(2).join('_'); // In case last name has underscores
           
-          console.log('Original booking ID:', bookingIdStr);
-          console.log('Extracted booking UUID:', bookingUuid);
+          console.log('URL parts:', { sessionUuid, clientFirstName, clientLastName });
+          console.log('Original session ID from URL:', bookingId);
           
-          // First, try to get the booking with its session details
-          console.log('Attempting to fetch booking with session details...');
-          const { data: bookingData, error: bookingError } = await supabase
-            .rpc('get_booking_with_session', { booking_id_param: bookingUuid });
+          // First, get the session details
+          console.log('Fetching session details...');
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('id', sessionUuid)
+            .single();
 
-          console.log('RPC call result:', { data: bookingData, error: bookingError });
+          console.log('Session fetch result:', { data: sessionData, error: sessionError });
 
-          if (bookingError) {
-            console.error('RPC Error:', bookingError);
-            throw new Error(`Failed to fetch booking: ${bookingError.message}`);
+          if (sessionError || !sessionData) {
+            throw new Error(sessionError?.message || 'Session not found');
           }
-
-          if (!bookingData) {
-            throw new Error('No data returned from get_booking_with_session');
-          }
-
-          console.log('Fetched booking data:', bookingData);
-
-          // If we got here, we have valid booking data
-          const sessionData = {
-            id: bookingData.session_id,
-            instructor_id: bookingData.instructor_id,
-            class_type_id: bookingData.class_type_id,
-            start_time: bookingData.start_time,
-            end_time: bookingData.end_time,
-            capacity: bookingData.capacity,
-            spots_available: bookingData.spots_available,
-            status: bookingData.status,
+          
+          // Get class type details
+          const { data: classTypeData } = await supabase
+            .from('class_types')
+            .select('*')
+            .eq('id', sessionData.class_type_id)
+            .single();
+            
+          // Get instructor details
+          const { data: instructorData } = await supabase
+            .from('instructors')
+            .select('*')
+            .eq('id', sessionData.instructor_id)
+            .single();
+            
+          const sessionDetails = {
+            ...sessionData,
+            class_type_name: classTypeData?.name || 'Unknown Class',
+            instructor_first_name: instructorData?.first_name || 'Instructor',
+            instructor_last_name: instructorData?.last_name || ''
+          };
+          
+          // Format the session data
+          const session: Session = {
+            id: sessionDetails.id,
+            instructor_id: sessionDetails.instructor_id,
+            class_type_id: sessionDetails.class_type_id,
+            start_time: sessionDetails.start_time,
+            end_time: sessionDetails.end_time,
+            capacity: sessionDetails.capacity || 4,
+            spots_available: sessionDetails.spots_available || (sessionDetails.capacity || 4),
+            status: sessionDetails.status || 'scheduled',
             class_type: {
-              id: bookingData.class_type_id,
-              name: bookingData.class_type_name || 'Unknown Class'
+              id: sessionDetails.class_type_id,
+              name: sessionDetails.class_type_name || 'Unknown Class'
             },
             instructor: {
-              id: bookingData.instructor_id,
-              first_name: bookingData.instructor_first_name || 'Unknown',
-              last_name: bookingData.instructor_last_name || 'Instructor'
+              id: sessionDetails.instructor_id,
+              first_name: sessionDetails.instructor_first_name || 'Instructor',
+              last_name: sessionDetails.instructor_last_name || ''
+            },
+            bookings: [] // This will be populated with booking objects
+          };
+          
+          // Find the client by first and last name
+          console.log('Searching for client:', { clientFirstName, clientLastName });
+          const { data: clientData } = await supabase
+            .from('clients')
+            .select('id')
+            .ilike('first_name', clientFirstName)
+            .ilike('last_name', clientLastName)
+            .maybeSingle();
+            
+          if (!clientData) {
+            console.warn('No client found with name:', { clientFirstName, clientLastName });
+          } else {
+            console.log('Found client:', clientData);
+            
+            // Now find the booking for this client and session
+            const { data: bookingData } = await supabase
+              .from('bookings')
+              .select('*')
+              .eq('session_id', sessionUuid)
+              .eq('client_id', clientData.id)
+              .maybeSingle();
+              
+            console.log('Booking search result:', bookingData);
+            
+            if (bookingData) {
+              const newBooking: Booking = {
+                id: bookingData.id,
+                client_id: bookingData.client_id,
+                session_id: bookingData.session_id,
+                booking_time: bookingData.booking_time,
+                status: bookingData.status || 'confirmed',
+                session: session
+              };
+              
+              setCurrentBooking(newBooking);
+              session.bookings = [{
+                id: bookingData.id
+              }];
+              
+              console.log('Set current booking:', newBooking);
+            } else {
+              console.warn('No booking found for client and session:', { 
+                clientId: clientData.id, 
+                sessionId: sessionUuid 
+              });
             }
-          };
-
-          // Transform the data to match our interfaces
-          const booking = {
-            id: bookingData.booking_id,
-            client_id: bookingData.client_id,
-            session_id: bookingData.session_id,
-            booking_time: bookingData.booking_time,
-            status: bookingData.status
-          };
-
-          // The session data is already properly formatted
-          const session = {
-            ...sessionData,
-            bookings: [] // Initialize empty array for bookings
-          };
-
-          console.log('Setting current session with data:', {
-            id: session.id,
-            instructor_id: session.instructor_id,
-            class_type_id: session.class_type_id,
-            start_time: session.start_time,
-            end_time: session.end_time,
-            capacity: session.capacity,
-            spots_available: session.spots_available,
-            status: session.status
-          });
-
+          }
+          
+          console.log('Formatted session data with defaults:', session);
           console.log('Setting current session:', session);
+          
+          // Set the current session
           setCurrentSession(session);
-          setCurrentBooking(booking);
+          
+          // If we didn't find a booking, log a message
+          if (!currentBooking) {
+            console.log('No booking found for this session, will create one during reschedule');
+          }
           
           // Set the selected date to the session's date
           if (session.start_time) {
@@ -622,7 +704,7 @@ export default function InstructorReschedulePage() {
         }
       };
 
-      fetchBookingAndSessionDetails();
+      fetchSessionAndBookingDetails();
     }, [bookingId]); // Add bookingId to the dependency array
 
     // Watch for changes to currentSession and fetch available sessions
