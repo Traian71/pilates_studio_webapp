@@ -330,7 +330,7 @@ const SelectMatPlanPage = () => {
                 }} 
                 variant="outline" className="w-full border-foreground text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring py-3 text-lg"
               >
-                Platește Cash în Studio
+                Platește Cash/Card în Studio
               </Button>
             </div>
             <div className="flex justify-start mt-10">
